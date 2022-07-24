@@ -4,6 +4,7 @@ import connection from './database/database.js';
 
 import categorySchema from './schemas/categorySchema.js';
 import gamesSchema from './schemas/gamesSchema.js';
+import customersSchema from './schemas/customersSchema.js';
 
 const app = express();
 app.use(express.json());
@@ -65,7 +66,7 @@ app.get('/games', async (req, res) => {
         if (name) {
             const stringToSearch = capitalizeString(name);
 
-            const { rows: gamesThatStartsWithName } = await connection.query(`
+            const { rows: gamesThatStartWithName } = await connection.query(`
                 select g.*, c.name as "categoryName"
                 from games g
                 join categories c
@@ -74,7 +75,7 @@ app.get('/games', async (req, res) => {
                 like $1
             `, [`${stringToSearch}%`]);
 
-            return res.send(gamesThatStartsWithName);
+            return res.send(gamesThatStartWithName);
         };
 
         const { rows: games } = await connection.query(`
@@ -118,6 +119,130 @@ app.post('/games', async (req, res) => {
         `, [name, image, stockTotal, categoryId, pricePerDay]);
 
         res.sendStatus(201);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.get('/customers', async (req, res) => {
+    try {
+        const { cpf } = req.query;
+
+        if (cpf) {
+
+            const { rows: customersThatStartWithCpf } = await connection.query(`
+                select *
+                from customers c
+                where c.cpf
+                like $1
+            `, [`${cpf}%`]);
+
+            return res.send(customersThatStartWithCpf);
+        };
+
+        const { rows: customers } = await connection.query(`
+            select *
+            from customers
+        `);
+
+        res.send(customers);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.get('/customers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { rows: customersWithId } = await connection.query(`
+                select *
+                from customers c
+                where c.id=$1
+            `, [id]);
+
+        if (customersWithId.length === 0) {
+            return res.sendStatus(404);
+        };
+
+        res.send(customersWithId);
+
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.post('/customers', async (req, res) => {
+    try {
+        const newCustomer = req.body;
+        const { name, phone, cpf, birthday } = newCustomer;
+
+        const validation = customersSchema.validate(newCustomer);
+
+        if (validation.error) {
+            return res.sendStatus(400);
+        };
+
+        const { rows: cpfExists } = await connection.query(`
+            select cpf
+            from customers
+            where cpf=$1
+        `, [cpf]);
+
+        if (cpfExists.length !== 0) {
+            return res.sendStatus(409);
+        };
+
+        await connection.query(`
+            insert into customers (name, phone, cpf, birthday)
+            values ($1, $2, $3, $4)
+        `, [name, phone, cpf, birthday]);
+
+        res.sendStatus(201);
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+});
+
+app.put('/customers/:id', async (req, res) => {
+    try {
+        const newCustomer = req.body;
+        const { id } = req.params;
+        const { name, phone, cpf, birthday } = newCustomer;
+
+        const validation = customersSchema.validate(newCustomer);
+
+        if (validation.error) {
+            return res.sendStatus(400);
+        };
+
+        const { rows: cpfExists } = await connection.query(`
+            select *
+            from customers
+            where cpf=$1
+            and id<>$2
+        `, [cpf, id]);
+
+        if (cpfExists.length !== 0) {
+            return res.sendStatus(409);
+        };
+
+        await connection.query(`
+                update customers
+                set
+                    name=$1,
+                    phone=$2,
+                    cpf=$3,
+                    birthday=$4
+                where customers.id=$5
+            `, [name, phone, cpf, birthday, id]);
+
+        res.sendStatus(200);
+
     } catch (error) {
         console.log(error);
         res.sendStatus(500);
