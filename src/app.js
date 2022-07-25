@@ -9,6 +9,7 @@ import gamesSchema from './schemas/gamesSchema.js';
 import customersSchema from './schemas/customersSchema.js';
 import rentalsSchema from './schemas/rentalsSchema.js';
 import getQueryOffsetAndLimit from './utils/getQueryOffsetAndLimit.js'
+import getQueryOrderByAndDesc from './utils/getQueryOrderByAndDesc.js'
 
 const app = express();
 app.use(express.json());
@@ -21,16 +22,21 @@ const capitalizeString = string => {
 
 app.get('/categories', async (req, res) => {
     try {
-        const { offset, limit } = req.query;
+        const { offset, limit, order, desc } = req.query;
 
         const defaultQueryString = `
             select * from categories
         `;
 
         const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+        const queryOrderBy = await getQueryOrderByAndDesc(defaultQueryString, order, desc);
 
         if (query) {
             return res.send(query);
+        };
+
+        if (queryOrderBy) {
+            return res.send(queryOrderBy);
         };
 
         const { rows: categories } = await connection.query(defaultQueryString);
@@ -76,7 +82,7 @@ app.post('/categories', async (req, res) => {
 
 app.get('/games', async (req, res) => {
     try {
-        const { name, offset, limit } = req.query;
+        const { name, offset, limit, order, desc } = req.query;
 
         const defaultQueryString = `
             select g.*, c.name as "categoryName"
@@ -86,9 +92,14 @@ app.get('/games', async (req, res) => {
         `;
 
         const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+        const queryOrderBy = await getQueryOrderByAndDesc(defaultQueryString, order, desc);
 
         if (query) {
             return res.send(query);
+        };
+
+        if (queryOrderBy) {
+            return res.send(queryOrderBy);
         };
 
         if (name) {
@@ -150,7 +161,7 @@ app.post('/games', async (req, res) => {
 
 app.get('/customers', async (req, res) => {
     try {
-        const { cpf, offset, limit } = req.query;
+        const { cpf, offset, limit, order, desc } = req.query;
 
         const defaultQueryString = `
             select *
@@ -158,9 +169,14 @@ app.get('/customers', async (req, res) => {
         `;
 
         const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+        const queryOrderBy = await getQueryOrderByAndDesc(defaultQueryString, order, desc);
 
         if (query) {
             return res.send(query);
+        };
+
+        if (queryOrderBy) {
+            return res.send(queryOrderBy);
         };
 
         if (cpf) {
@@ -282,7 +298,7 @@ app.put('/customers/:id', async (req, res) => {
 
 app.get('/rentals', async (req, res) => {
     try {
-        const { customerId, gameId, offset, limit } = req.query;
+        const { customerId, gameId, offset, limit, order, desc } = req.query;
 
         const defaultQueryString = `
             select r.*,
@@ -298,11 +314,15 @@ app.get('/rentals', async (req, res) => {
         `;
 
         const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+        const queryOrderBy = await getQueryOrderByAndDesc(defaultQueryString, order, desc);
 
         if (query) {
             return res.send(query);
         };
 
+        if (queryOrderBy) {
+            return res.send(queryOrderBy);
+        };
         if (customerId) {
 
             const { rows: rentalsForCustomerId } = await connection.query(`
