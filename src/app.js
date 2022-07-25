@@ -8,6 +8,7 @@ import categorySchema from './schemas/categorySchema.js';
 import gamesSchema from './schemas/gamesSchema.js';
 import customersSchema from './schemas/customersSchema.js';
 import rentalsSchema from './schemas/rentalsSchema.js';
+import getQueryOffsetAndLimit from './utils/getQueryOffsetAndLimit.js'
 
 const app = express();
 app.use(express.json());
@@ -20,9 +21,19 @@ const capitalizeString = string => {
 
 app.get('/categories', async (req, res) => {
     try {
-        const { rows: categories } = await connection.query(`
+        const { offset, limit } = req.query;
+
+        const defaultQueryString = `
             select * from categories
-        `);
+        `;
+
+        const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+
+        if (query) {
+            return res.send(query);
+        };
+
+        const { rows: categories } = await connection.query(defaultQueryString);
 
         res.send(categories);
     } catch (error) {
@@ -65,7 +76,20 @@ app.post('/categories', async (req, res) => {
 
 app.get('/games', async (req, res) => {
     try {
-        const { name } = req.query;
+        const { name, offset, limit } = req.query;
+
+        const defaultQueryString = `
+            select g.*, c.name as "categoryName"
+            from games g
+            join categories c
+            on c.id=g."categoryId"
+        `;
+
+        const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+
+        if (query) {
+            return res.send(query);
+        };
 
         if (name) {
             const stringToSearch = capitalizeString(name);
@@ -82,12 +106,7 @@ app.get('/games', async (req, res) => {
             return res.send(gamesThatStartWithName);
         };
 
-        const { rows: games } = await connection.query(`
-            select g.*, c.name as "categoryName"
-            from games g
-            join categories c
-            on c.id=g."categoryId"
-        `);
+        const { rows: games } = await connection.query(defaultQueryString);
 
         res.send(games);
     } catch (error) {
@@ -131,7 +150,18 @@ app.post('/games', async (req, res) => {
 
 app.get('/customers', async (req, res) => {
     try {
-        const { cpf } = req.query;
+        const { cpf, offset, limit } = req.query;
+
+        const defaultQueryString = `
+            select *
+            from customers
+        `;
+
+        const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+
+        if (query) {
+            return res.send(query);
+        };
 
         if (cpf) {
 
@@ -145,10 +175,7 @@ app.get('/customers', async (req, res) => {
             return res.send(customersThatStartWithCpf);
         };
 
-        const { rows: customers } = await connection.query(`
-            select *
-            from customers
-        `);
+        const { rows: customers } = await connection.query(defaultQueryString);
 
         res.send(customers);
     } catch (error) {
@@ -255,8 +282,26 @@ app.put('/customers/:id', async (req, res) => {
 
 app.get('/rentals', async (req, res) => {
     try {
-        const { customerId } = req.query;
-        const { gameId } = req.query;
+        const { customerId, gameId, offset, limit } = req.query;
+
+        const defaultQueryString = `
+            select r.*,
+                json_build_object('id', c.id, 'name', c.name) as customer,
+                json_build_object('id', g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) as game
+            from rentals r 
+            join customers c 
+            on r."customerId"=c.id
+            join games g
+            on r."gameId"=g.id
+            join categories cat
+            on g."categoryId"=cat.id
+        `;
+
+        const query = await getQueryOffsetAndLimit(defaultQueryString, offset, limit);
+
+        if (query) {
+            return res.send(query);
+        };
 
         if (customerId) {
 
@@ -294,18 +339,7 @@ app.get('/rentals', async (req, res) => {
             return res.send(rentalsForGameId);
         };
 
-        const { rows: rentals } = await connection.query(`
-                select r.*,
-                    json_build_object('id', c.id, 'name', c.name) as customer,
-                    json_build_object('id', g.id, 'name', g.name, 'categoryId', g."categoryId", 'categoryName', cat.name) as game
-                from rentals r 
-                join customers c 
-                on r."customerId"=c.id
-                join games g
-                on r."gameId"=g.id
-                join categories cat
-                on g."categoryId"=cat.id
-        `);
+        const { rows: rentals } = await connection.query(defaultQueryString);
 
         res.send(rentals);
     } catch (error) {
